@@ -124,7 +124,7 @@
     <input type="hidden" name="ship"><input type="hidden" name="cabin">
     <h3 id="cc-media-dialog-title">Foto oder Video teilen</h3>
     <p class="cc-media-dialog-intro" id="cc-media-dialog-context"></p>
-    <label>Datei auswählen <input name="file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" required><small>Fotos: JPG, PNG oder WebP bis 12 MB · Videos: MP4, WebM oder MOV bis 250 MB.</small></label>
+    <label>Datei auswählen <input name="file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/quicktime" required><small>Fotos: JPG, PNG, WebP sowie HEIF/HEIC bis 12 MB · Videos: MP4, WebM oder MOV bis 250 MB. HEIF/HEIC wird auf deinem Gerät in JPEG umgewandelt.</small></label>
     <label>Titel <input name="title" maxlength="160" placeholder="Zum Beispiel: Balkon am Nachmittag"></label>
     <label>Dein Hinweis zur Kabine <textarea name="description" maxlength="5000" placeholder="Optional: Was sollte man zu dieser Kabine wissen?"></textarea></label>
     <div class="cc-media-dialog-grid"><label>Dein Name <input name="uploader_name" maxlength="120" autocomplete="name" placeholder="Optional"></label><label>E-Mail-Adresse <input name="uploader_email" type="email" maxlength="190" autocomplete="email" placeholder="Optional"></label></div>
@@ -243,6 +243,8 @@ activateShip("");
   const submit = form.querySelector('.cc-media-submit');
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
   const humanShip = (slug) => ({ america: 'MSC World America', europa: 'MSC World Europa', asia: 'MSC World Asia', euribia: 'MSC Euribia', virtuosa: 'MSC Virtuosa', grandiosa: 'MSC Grandiosa', bellissima: 'MSC Bellissima', meraviglia: 'MSC Meraviglia', seaside: 'MSC Seaside', seaview: 'MSC Seaview', seascape: 'MSC Seascape' }[slug] || slug);
+  const heicSource = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+  let heicConverterPromise;
 
   const setNotice = (message = '', kind = '') => {
     notice.hidden = !message;
@@ -257,6 +259,31 @@ activateShip("");
       : `<img loading="lazy" src="${escapeHtml(media.url)}" alt="${escapeHtml(title)}">`;
     return `<article class="cc-cabin-media-card">${visual}<div class="cc-cabin-media-copy"><strong>${escapeHtml(title)}</strong>${media.description ? `<p>${escapeHtml(media.description)}</p>` : ''}</div></article>`;
   };
+
+  const isHeic = (file) => ['image/heic', 'image/heif'].includes((file.type || '').toLowerCase()) || /\.hei[cf]$/i.test(file.name || '');
+  function loadHeicConverter() {
+    if (typeof window.heic2any === 'function') return Promise.resolve(window.heic2any);
+    if (heicConverterPromise) return heicConverterPromise;
+    heicConverterPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = heicSource;
+      script.async = true;
+      script.onload = () => typeof window.heic2any === 'function' ? resolve(window.heic2any) : reject(new Error('Die HEIF-Konvertierung konnte nicht geladen werden.'));
+      script.onerror = () => reject(new Error('Die HEIF-Konvertierung konnte nicht geladen werden. Bitte versuche es später erneut oder exportiere das Foto als JPEG.'));
+      document.head.appendChild(script);
+    });
+    return heicConverterPromise;
+  }
+  async function prepareUploadFile(file) {
+    if (!isHeic(file)) return file;
+    setNotice('HEIF/HEIC wird auf deinem Gerät für die Veröffentlichung vorbereitet …');
+    const convert = await loadHeicConverter();
+    const converted = await convert({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+    const jpeg = Array.isArray(converted) ? converted[0] : converted;
+    if (!(jpeg instanceof Blob)) throw new Error('Das HEIF-Bild konnte nicht umgewandelt werden.');
+    const base = (file.name || 'foto').replace(/\.hei[cf]$/i, '') || 'foto';
+    return new File([jpeg], `${base}.jpg`, { type: 'image/jpeg' });
+  }
 
   async function loadCommunity(block) {
     if (!block || block.dataset.mediaLoading === 'true') return;
@@ -309,16 +336,9 @@ activateShip("");
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     setNotice();
-    const file = form.elements.file.files[0];
-    if (!file) {
+    const selectedFile = form.elements.file.files[0];
+    if (!selectedFile) {
       setNotice('Bitte wähle ein Foto oder Video aus.', 'error');
-      return;
-    }
-    const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
-    const isVideo = ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type);
-    const limit = isVideo ? 250 * 1024 * 1024 : 12 * 1024 * 1024;
-    if ((!isImage && !isVideo) || file.size > limit) {
-      setNotice('Bitte beachte Format und maximale Dateigröße.', 'error');
       return;
     }
     if (!form.elements.consent.checked) {
@@ -329,7 +349,14 @@ activateShip("");
     submit.disabled = true;
     submit.textContent = 'Wird eingereicht …';
     try {
-      const response = await fetch(`${apiBase}/media`, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+      const file = await prepareUploadFile(selectedFile);
+      const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+      const isVideo = ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type);
+      const limit = isVideo ? 250 * 1024 * 1024 : 12 * 1024 * 1024;
+      if ((!isImage && !isVideo) || file.size > limit) throw new Error('Bitte beachte Format und maximale Dateigröße. Ein umgewandeltes HEIF-Bild darf maximal 12 MB groß sein.');
+      const uploadData = new FormData(form);
+      uploadData.set('file', file, file.name);
+      const response = await fetch(`${apiBase}/media`, { method: 'POST', body: uploadData, headers: { Accept: 'application/json' } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Der Upload konnte nicht gespeichert werden.');
       setNotice(payload.message || 'Danke! Dein Beitrag wartet auf Freigabe.', 'success');
