@@ -38,7 +38,7 @@
     #msc-world-cabin-finder .cc-cabin-media-status{color:#60758a;font-size:.9rem;margin:18px 0 0}
     #msc-world-cabin-finder .cc-cabin-media-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:18px}
     #msc-world-cabin-finder .cc-cabin-media-card{background:#fff;border:1px solid #dfe9f1;border-radius:12px;overflow:hidden}
-    #msc-world-cabin-finder .cc-cabin-media-card img,#msc-world-cabin-finder .cc-cabin-media-card video{background:#e7eef4;display:block;height:160px;object-fit:cover;width:100%}
+    #msc-world-cabin-finder .cc-cabin-media-card img,#msc-world-cabin-finder .cc-cabin-media-card video{background:#e7eef4;display:block;height:220px;object-fit:contain;width:100%}
     #msc-world-cabin-finder .cc-cabin-media-copy{padding:12px 13px 14px}
     #msc-world-cabin-finder .cc-cabin-media-copy strong{color:#102b47;display:block;font-size:.93rem}
     #msc-world-cabin-finder .cc-cabin-media-copy p{color:#5e7184;font-size:.86rem;margin:4px 0 0}
@@ -61,7 +61,7 @@
     #cc-cabin-media-form .cc-media-form-notice{border-radius:8px;font-size:.88rem;margin:0;padding:10px 11px}
     #cc-cabin-media-form .cc-media-form-notice.error{background:#fff0ee;color:#94221a}
     #cc-cabin-media-form .cc-media-form-notice.success{background:#e5f6ec;color:#17643f}
-    @media(max-width:620px){#msc-world-cabin-finder .cc-cabin-community{padding:18px}#msc-world-cabin-finder .cc-cabin-community-head{flex-direction:column;gap:13px}#msc-world-cabin-finder .cc-media-upload-button{width:100%}#cc-cabin-media-form{padding:20px}#cc-cabin-media-form .cc-media-dialog-grid{grid-template-columns:1fr}#cc-cabin-media-form .cc-media-dialog-actions{align-items:stretch;flex-direction:column-reverse}#cc-cabin-media-form .cc-media-cancel,#cc-cabin-media-form .cc-media-submit{width:100%}}
+    @media(max-width:620px){#msc-world-cabin-finder .cc-cabin-community{padding:18px}#msc-world-cabin-finder .cc-cabin-community-head{flex-direction:column;gap:13px}#msc-world-cabin-finder .cc-media-upload-button{width:100%}#msc-world-cabin-finder .cc-cabin-media-card img,#msc-world-cabin-finder .cc-cabin-media-card video{height:250px}#cc-cabin-media-form{padding:20px}#cc-cabin-media-form .cc-media-dialog-grid{grid-template-columns:1fr}#cc-cabin-media-form .cc-media-dialog-actions{align-items:stretch;flex-direction:column-reverse}#cc-cabin-media-form .cc-media-cancel,#cc-cabin-media-form .cc-media-submit{width:100%}}
 
   </style>
 </head>
@@ -377,7 +377,7 @@ activateShip("");
   });
 
   const result = document.getElementById('wa-result');
-  if (result) new MutationObserver(loadVisibleCommunities).observe(result, { childList: true, subtree: true });
+  if (result) new MutationObserver(loadVisibleCommunities).observe(result, { childList: true });
   loadVisibleCommunities();
 })();
 
